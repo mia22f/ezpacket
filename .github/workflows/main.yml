@@ -18,17 +18,18 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Move files and remove folder
+        shell: bash
         run: |
-          # فعال‌سازی نمایش فایل‌های مخفی
+          # فعال‌سازی نمایش فایل‌های مخفی در بش
           shopt -s dotglob
           
-          # انتقال فایل‌ها به پوشه روت
-          mv telegram-bot/* .
+          # انتقال تمام محتویات داخل پوشه به روت
+          mv telegram-bot/* ./
           
-          # حذف کامل پوشه خالی
+          # حذف پوشه خالی شده
           rm -rf telegram-bot
 
-          # اضافه کردن تغییرات به گیت و کامیت
+          # اضافه کردن و کامیت کردن تغییرات
           git add -A
 
           if git diff --staged --quiet; then
