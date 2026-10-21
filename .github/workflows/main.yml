@@ -12,41 +12,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout default branch
+        uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ github.event.repository.default_branch }}
 
-      - name: Move telegram-bot contents to root
+      - name: Inspect repository and locate folder
+        id: locate
         shell: bash
         run: |
           set -euo pipefail
 
+          echo "Default branch: ${{ github.event.repository.default_branch }}"
+          echo "Repository root:"
+          ls -la
+
           SOURCE="telegram-bot"
 
           if [ ! -d "$SOURCE" ]; then
-            echo "::error::Directory telegram-bot does not exist."
+            echo "::error::telegram-bot not found in the default branch."
+            echo "Tracked paths matching telegram-bot:"
+            git ls-files | grep -i 'telegram-bot' || true
             exit 1
           fi
 
-          # Stop if any top-level name would be overwritten.
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+
+      - name: Move folder contents to root
+        shell: bash
+        env:
+          SOURCE: ${{ steps.locate.outputs.source }}
+        run: |
+          set -euo pipefail
+
+          # Prevent overwriting any existing root-level item.
           while IFS= read -r -d '' item; do
             name="${item#"$SOURCE"/}"
 
-            if [[ "$name" != */* && -e "./$name" || "$name" != */* && -L "./$name" ]]; then
-              echo "::error::Root already contains '$name'. Nothing was moved."
+            if [[ -e "./$name" || -L "./$name" ]]; then
+              echo "::error::Root item already exists: $name"
               exit 1
             fi
-          done < <(find "$SOURCE" -mindepth 1 -maxdepth 1 -print0)
+          done < <(
+            find "$SOURCE" -mindepth 1 -maxdepth 1 -print0
+          )
 
-          # Move all files and subdirectories, including hidden items.
-          find "$SOURCE" -mindepth 1 -maxdepth 1 -exec mv -t . -- {} +
+          # Include hidden files and directories.
+          find "$SOURCE" -mindepth 1 -maxdepth 1 \
+            -exec mv -t . -- {} +
 
-          # Remove the now-empty source directory.
           rmdir "$SOURCE"
 
-      - name: Commit and push changes
+      - name: Commit and push
         shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
 
@@ -56,8 +76,9 @@ jobs:
           fi
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -A
           git commit -m "Move telegram-bot contents to repository root"
-          git push origin HEAD:main
+          git push origin "HEAD:${TARGET_BRANCH}"
