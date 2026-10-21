@@ -6,7 +6,7 @@ workers_dev = true
 
 [[kv_namespaces]]
 binding = "BOT_KV"
-id = "REPLACE_WITH_YOUR_CLOUDFLARE_KV_NAMESPACE_ID"
+id = "9485f56656a84269a96e2ba0abc5bf48"
 
 [assets]
 directory = "./public"
