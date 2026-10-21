@@ -1,40 +1,63 @@
-name: Move Telegram Bot Files to Root
+
+name: Move Telegram Bot to Root
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   move-files:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
-      - name: Configure Git Identity
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Move files and remove folder
+      - name: Move telegram-bot contents to root
         shell: bash
         run: |
-          # فعال‌سازی نمایش فایل‌های مخفی در بش
-          shopt -s dotglob
-          
-          # انتقال تمام محتویات داخل پوشه به روت
-          mv telegram-bot/* ./
-          
-          # حذف پوشه خالی شده
-          rm -rf telegram-bot
+          set -euo pipefail
 
-          # اضافه کردن و کامیت کردن تغییرات
-          git add -A
+          SOURCE="telegram-bot"
 
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Move telegram-bot files to root and delete empty directory"
-            git push
+          if [ ! -d "$SOURCE" ]; then
+            echo "::error::Directory telegram-bot does not exist."
+            exit 1
           fi
+
+          # Stop if any top-level name would be overwritten.
+          while IFS= read -r -d '' item; do
+            name="${item#"$SOURCE"/}"
+
+            if [[ "$name" != */* && -e "./$name" || "$name" != */* && -L "./$name" ]]; then
+              echo "::error::Root already contains '$name'. Nothing was moved."
+              exit 1
+            fi
+          done < <(find "$SOURCE" -mindepth 1 -maxdepth 1 -print0)
+
+          # Move all files and subdirectories, including hidden items.
+          find "$SOURCE" -mindepth 1 -maxdepth 1 -exec mv -t . -- {} +
+
+          # Remove the now-empty source directory.
+          rmdir "$SOURCE"
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit -m "Move telegram-bot contents to repository root"
+          git push origin HEAD:main
