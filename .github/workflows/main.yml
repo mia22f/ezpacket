@@ -1,16 +1,13 @@
 name: Move Telegram Bot Files to Root
 
 on:
-  workflow_dispatch: # امکان اجرای دستی از طریق تب Actions در گیت‌هاب
-  push:
-    branches:
-      - main # یا نام شاخه پیش‌فرض خود (مثلاً master)
+  workflow_dispatch:
 
 jobs:
   move-files:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # دسترسی برای نوشتن و کامیت کردن تغییرات روی ریپازیتوری
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,17 +19,18 @@ jobs:
 
       - name: Move files and remove folder
         run: |
-          # انتقال تمام محتویات (شامل فایل‌های مخفی مثل .env یا .gitignore اگر داخلش باشند) به پوشه اصلی
+          # فعال‌سازی نمایش فایل‌های مخفی
           shopt -s dotglob
-          mv telegram-bot/* ./
           
-          # حذف پوشه خالی telegram-bot
-          rmdir telegram-bot
+          # انتقال فایل‌ها به پوشه روت
+          mv telegram-bot/* .
+          
+          # حذف کامل پوشه خالی
+          rm -rf telegram-bot
 
-          # اضافه کردن تغییرات به گیت
+          # اضافه کردن تغییرات به گیت و کامیت
           git add -A
 
-          # بررسی اینکه آیا تغییری برای کامیت کردن وجود دارد یا خیر
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
